@@ -1,0 +1,78 @@
+#!/bin/sh
+echo "Testing is started at `date`..."
+`date > "/data/local/tmp/meminfo-test_MO_WLAN.log"`
+`cat /proc/meminfo >> "/data/local/tmp/meminfo-test_MO_WLAN.log"`
+
+export busyboxpath="/data/local/tmp/busybox"
+Dial_count=1
+MOcount_pass=0
+MOcount_fail=0
+Endcall_fail=0
+Endcall_pass=0
+WLAN_time=0
+export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mDataConnectionState`	
+export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '`
+
+
+while [ "$Dial_count" -le 1500 ]
+ do
+
+
+ 	sleep 5
+ 	am start -a android.intent.action.CALL -d tel:0986187258
+ 	Dial_count=`$busyboxpath expr $Dial_count + 1 `
+ 	echo "Make MO call $Dial_count times"
+ 	sleep 5
+ 	export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mCallState`	
+	export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '`
+ 
+ 		if [ "$findoutstate" == "mCallState=2" ]
+    			then
+					  sleep 1
+    				MOcount_pass=`$busyboxpath expr $MOcount_pass + 1 `
+     				echo "`date` Connected Pass for $MOcount_pass Times"   
+		
+               echo "`date` Start to WLAN with MO/MT call "
+						   uiautomator runtest UiAutomator2.jar -c com.uia.example.my.UiTest2
+          
+						WLAN_time=`$busyboxpath expr $WLAN_time + 1 `
+						echo "`date` Connect WWAN/WLAN $WLAN_time times."
+		
+			        sleep 15
+ 		fi
+ 	 export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mCallState`	
+	 export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '` 
+ 		if [ "$findoutstate" == "mCallState=0" ]
+   			 then
+   				 MOcount_fail=`$busyboxpath expr $MOcount_fail + 1 `
+  				 echo "`date` Connected Fail for $MOcount_fail Times"
+					 `screenshot -i /data/local/tmp/ConnectFail.png`
+   			`
+				 sleep 15
+		fi 
+        input keyevent 6
+        input keyevent 3
+#fiexport findoutstate=`dumpsys telephony.registry|$busyboxpath grep mDataConnectionState`	
+
+	sleep 5
+	export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mCallState`	
+	export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '`
+		 while [ "$findoutstate" == "mCallState != 0" ]
+               do
+
+                  Endcall_fail=`$busyboxpath expr $Endcall_fail + 1 `
+                  echo "`date` Fail to hang up for $Endcall_fail Times"
+               		 `screenshot -i /data/local/tmp/EndCallFail.png`
+	       done  
+
+ 		if [ `$busyboxpath expr $Dial_count % 100 ` -eq 0  ]
+			then
+	     `date >> "/data/local/tmp/ps-test_MO_WLAN.log"`
+    	 `ps >> "/data/local/tmp/ps-test_MO_WLAN.log"`
+    fi  
+
+ `echo "Total Pass= $MOcount_pass times ; Total Fail= $MOcount_fail times ; Total Connect WLAN= $WLAN_time times " > "/data/local/tmp/TestResult.txt"`
+done
+ 
+ 
+ 

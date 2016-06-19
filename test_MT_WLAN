@@ -1,0 +1,88 @@
+#!/bin/sh
+echo "Testing is started at `date`..."
+
+	`date > "/data/local/tmp/meminfo-test_MT.log"`
+	`cat /proc/meminfo >> "/data/local/tmp/meminfo-test_MT.log"`      
+#  `date >> "/data/local/tmp/ps-test_MT_SMS.log"`
+#  `ps >> "/data/local/tmp/ps-test_MT_SMS.log"`
+        
+export busyboxpath="/data/local/tmp/busybox"
+Get_ring=0
+MTcount=1
+MTcount_pass=0
+MTcount_fail=0
+Endcall_fail=0
+Endcall_pass=0
+Other_Call_Conming=0
+WLAN_time=0
+if [ "$findoutstate" == "mCallState=0" ] 
+  then 
+  	echo "wait for call"
+
+
+
+else
+while [ true ]
+
+ do
+    export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mCallState`
+    export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '`
+   
+   if [ "$findoutstate" == "mCallState=1" ] 
+      then
+        sleep 1
+        input keyevent 5
+				MTcount=`$busyboxpath expr $MTcount + 1 `
+     		echo "`date` Receive $MTcount times and DUT is $findoutstate"
+       
+    
+    sleep 2
+    export findoutstate=`dumpsys telephony.registry|$busyboxpath grep mCallState`
+    export findoutstate=`echo "$findoutstate" |$busyboxpath tr -d ' '`  
+        
+    elif [ "$findoutstate" == "mCallState=2" ] 
+           then
+          # if [ `$busyboxpath expr $MTcount % 10 ` -eq 0 ]
+						#then  
+               echo "`date` Device start to send connect WLAN "
+                uiautomator runtest UiAutomator2.jar -c com.uia.example.my.UiTest2
+							 #am start -a android.intent.action.SENDTO -d sms:0975398382 --es sms_body send_from_MT --ez exit_on_sent true
+							 #input keyevent 66
+							 WLAN_time=`$busyboxpath expr $WLAN_time + 1 `
+							 echo "`date` WAN/WLAN $WLAN_time times."
+					 #fi
+					 sleep 20
+	   			 MTcount_pass=`$busyboxpath expr $MTcount_pass + 1 `
+           echo "`date` Connected Pass for $MTcount_pass Times and DUT is $findoutstate"   
+					 
+ 		elif [ "$findoutstate" == "mCallState == 2" ] || [ "$findoutstate" == "mCallState == 0" ]
+           then
+           sleep 20
+	   				MTcount_fail=`$busyboxpath expr $MTcount_fail + 1 `
+            echo "`date` Connected fail for $MTcount_fail Times and DUT is $findoutstate"   
+            `screenshot -i /data/local/tmp/ConnectFail.png`
+
+          while [ "$findoutstate" == "mCallState == 2" ] || [ "$findoutstate" == "mCallState == 1" ]
+               do
+                  Endcall_fail=`$busyboxpath expr $Endcall_fail + 1 `
+                  echo "`date` Fail to hang up for $Endcall_fail Times and DUT is $findoutstate"
+										`screenshot -i /data/local/tmp/EndCallFail.png`
+                  input keyevent 6
+	         				input keyevent 3
+	            done    
+
+			elif [ `$busyboxpath expr $MTcount % 100 ` -eq 0 ] 
+							then 
+ 								`date >> "/data/local/tmp/ps-test_MT_SMS.log"`
+ 								`ps >> "/data/local/tmp/ps-test_MT_SMS.log"` 
+								#echo "=============================Result================================ "
+								#echo "Total Pass= $MOcount_pass times ; Total Fail= $MOcount_fail times ; Total send SMS= $SMS_time times " 
+				fi
+				`echo "Total Pass= $MTcount_pass times ; Total Fail= $MTcount_fail times ; Total send SMS= $WLAN_time times " > "/data/local/tmp/TestResult.txt"`
+		
+					
+
+done
+input keyevent 3 
+fi
+
